@@ -66,9 +66,22 @@ if __name__ == "__main__":
 
     st.write("Simulation Results")
     t = st.slider("Time", 0, params.n_steps - 1, 0)
-    st.plotly_chart(go.Figure(go.Scatter3d(
+    fig = go.Figure(go.Scatter3d(
         x=sim.posns[t, 0, :],
         y=sim.posns[t, 1, :],
         z=sim.posns[t, 2, :],
         mode="markers",
-    )))
+    ))
+
+    fig.update_layout(
+        scene_aspectmode="cube",
+        height=800,
+        width=800,
+        scene={
+            "xaxis": {"range": [-params.box_x/2, params.box_x/2]},
+            "yaxis": {"range": [-params.box_y/2, params.box_y/2]},
+            "zaxis": {"range": [-params.box_z/2, params.box_z/2]},
+        }
+    )
+
+    st.plotly_chart(fig)
