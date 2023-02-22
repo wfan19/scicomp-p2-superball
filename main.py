@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import plotly.express as px
 
 import streamlit as st
 
@@ -12,6 +13,9 @@ class ColloidSimParams:
     # Simulation timestep and particle counts
     n_steps:        int = 10
     n_particles:    int = 1
+
+    posns_0:        np.ndarray = np.zeros((3, n_particles))
+    vels_0:         np.ndarray = np.zeros((3, n_particles))
 
     # Simulation parameters
     dt:             float = 0.01
@@ -46,20 +50,29 @@ class ColloidSim:
         self.timesteps = np.linspace(t_start, t_end, params.n_steps)
 
     def simulate(self):
-        # Placeholder constant velocity
-        self.vels[:, 0, :] = 1
-
         for i, t in enumerate(self.timesteps):
             if i == 0:
-                # TODO: Initialize initial positions at some point? But also maybe not here.
+                # If first timestep, initialize the positions and velocities from the given conditions
+                self.posns[i, :, :] = self.params.posns_0
+                self.vels[i, :, :] = self.params.vels_0
                 continue
+
+            # Naively propagate forward last velocity
+            # TODO: Collision checking for flipping velocities!
+            self.vels[i, :, :] = self.vels[i-1, :, :]
 
             # Naive discrete kinematics
             # r_next = r_current + vel * dt
             self.posns[i, :, :] = self.posns[i-1, :, :] + self.vels[i, :, :] * self.params.dt
 
 if __name__ == "__main__":
-    params = ColloidSimParams()
+
+    # Set up basic 2-particle test case: particles going towards each other at the same speed
+    params = ColloidSimParams(
+        n_particles = 2,
+        posns_0 = np.array([[0.05, 0, 0], [-0.05, 0, 0]]).T,
+        vels_0 = np.array([[-1, 0, 0], [1, 0, 0]]).T
+    )
     sim = ColloidSim(params)
 
     sim.simulate()
@@ -71,6 +84,7 @@ if __name__ == "__main__":
         y=sim.posns[t, 1, :],
         z=sim.posns[t, 2, :],
         mode="markers",
+        marker={"color": px.colors.qualitative.Dark24}
     ))
 
     fig.update_layout(
@@ -81,7 +95,8 @@ if __name__ == "__main__":
             "xaxis": {"range": [-params.box_x/2, params.box_x/2]},
             "yaxis": {"range": [-params.box_y/2, params.box_y/2]},
             "zaxis": {"range": [-params.box_z/2, params.box_z/2]},
-        }
+        },
+        uirevision="hi"
     )
 
     st.plotly_chart(fig)
