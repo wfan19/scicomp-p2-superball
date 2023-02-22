@@ -3,6 +3,9 @@ import numpy as np
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+
+import streamlit as st
 
 @dataclass
 class ColloidSimParams:
@@ -55,14 +58,17 @@ class ColloidSim:
             # r_next = r_current + vel * dt
             self.posns[i, :, :] = self.posns[i-1, :, :] + self.vels[i, :, :] * self.params.dt
 
-    def visualize(self):
-        pass
-
 if __name__ == "__main__":
     params = ColloidSimParams()
     sim = ColloidSim(params)
 
     sim.simulate()
-    breakpoint()
 
-    sim.visualize
+    st.write("Simulation Results")
+    t = st.slider("Time", 0, params.n_steps - 1, 0)
+    st.plotly_chart(go.Figure(go.Scatter3d(
+        x=sim.posns[t, 0, :],
+        y=sim.posns[t, 1, :],
+        z=sim.posns[t, 2, :],
+        mode="markers",
+    )))
