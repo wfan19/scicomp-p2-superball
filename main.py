@@ -25,7 +25,7 @@ class ColloidSimParams:
     box_y:          int = 1
     box_z:          int = 1
 
-    particle_r:     float = 0.1
+    particle_r:     float = 0.025 #TODO: Support indiivdual particle sizes
 
 class ColloidSim:
     params = ColloidSimParams()
@@ -51,17 +51,35 @@ class ColloidSim:
 
     def simulate(self):
         for i, t in enumerate(self.timesteps):
+
+            # If first timestep, initialize the positions and velocities from the given conditions
             if i == 0:
-                # If first timestep, initialize the positions and velocities from the given conditions
                 self.posns[i, :, :] = self.params.posns_0
                 self.vels[i, :, :] = self.params.vels_0
                 continue
 
-            # Naively propagate forward last velocity
-            # TODO: Collision checking for flipping velocities!
+            # 1. Naively propagate forward last velocity
             self.vels[i, :, :] = self.vels[i-1, :, :]
 
-            # Naive discrete kinematics
+            # 2. Now check for collisions: which velocities do we update?
+            # Purely narrow-phase collision checking: Check every possible particle pair
+            # TODO: Seperate out broad-phase from narrow phase by using KD or Quad trees.
+            for i_particle, particle in enumerate(self.posns[i-1, :, :].T):
+                # Get distance between current particle and all other particles
+                particle_as_col = np.atleast_2d(particle).T 
+                distances = np.linalg.norm(particle_as_col - self.posns[i-1, :, :], axis=0)
+
+                # Check if distances between current particle and any other ones are within the collision threshold
+                colliding = (distances <= self.params.particle_r * 2) # TODO: After implementing individual particle sizes, reference from that list
+                colliding[i_particle] = False
+
+                if np.any(colliding):
+                    i_collision_particle = np.argmin(distances)
+                    print(f"Collision between {i_particle} and {i_collision_particle} happened at time {t}")
+                    # TODO: Collision handling!
+
+            # 3. Now that we have updated all velocities accordingly, let's integrate the velocities to find the new positions
+            # TODO: For entities where a collision after the next step is anticipated, we need to do special things to prevent ghosting
             # r_next = r_current + vel * dt
             self.posns[i, :, :] = self.posns[i-1, :, :] + self.vels[i, :, :] * self.params.dt
 
@@ -84,7 +102,7 @@ if __name__ == "__main__":
         y=sim.posns[t, 1, :],
         z=sim.posns[t, 2, :],
         mode="markers",
-        marker={"color": px.colors.qualitative.Dark24}
+        marker={"color": px.colors.qualitative.Dark24, "size": 5}
     ))
 
     fig.update_layout(
