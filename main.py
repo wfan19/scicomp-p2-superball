@@ -8,6 +8,8 @@ import plotly.express as px
 
 import streamlit as st
 
+print_debug = False
+
 @dataclass
 class ColloidSimParams:
     # Simulation timestep and particle counts
@@ -25,7 +27,8 @@ class ColloidSimParams:
     box_y:          int = 1
     box_z:          int = 1
 
-    particle_r:     float = 0.025 #TODO: Support indiivdual particle sizes
+    particle_r:         float = 0.025 * np.ones(n_particles)
+    particle_masses:    np.ndarray = 0.01 * np.ones(n_particles)
 
 class ColloidSim:
     params = ColloidSimParams()
@@ -64,19 +67,64 @@ class ColloidSim:
             # 2. Now check for collisions: which velocities do we update?
             # Purely narrow-phase collision checking: Check every possible particle pair
             # TODO: Seperate out broad-phase from narrow phase by using KD or Quad trees.
-            for i_particle, particle in enumerate(self.posns[i-1, :, :].T):
+
+            # Preallocate list of contact normals, which we will populate as we detect collisions
+            # This way we only calculate once for each pair
+            collision_pairs = set()
+
+            last_posns = self.posns[i-1, :, :]
+            last_vels = self.vels[i-1, :, :]
+
+            for i_particle, particle in enumerate(last_posns.T):
                 # Get distance between current particle and all other particles
                 particle_as_col = np.atleast_2d(particle).T 
-                distances = np.linalg.norm(particle_as_col - self.posns[i-1, :, :], axis=0)
+                distances = np.linalg.norm(particle_as_col - last_posns, axis=0)
 
                 # Check if distances between current particle and any other ones are within the collision threshold
-                colliding = (distances <= self.params.particle_r * 2) # TODO: After implementing individual particle sizes, reference from that list
+                # TODO: Elementwise compare against a list of expected collision distances for each particle based on particle.particle_r + collision_particle.particle_r
+                breakpoint()
+                colliding = (distances <= self.params.particle_r[i_particle] * 2) 
                 colliding[i_particle] = False
 
                 if np.any(colliding):
-                    i_collision_particle = np.argmin(distances)
-                    print(f"Collision between {i_particle} and {i_collision_particle} happened at time {t}")
-                    # TODO: Collision handling!
+                    i_collision_particle = np.argmin(distances) # NOTE: Hopefully choosing the minimum-distance collision will also auto-resolve any multiple-collision scenario
+                    collision_pair = frozenset((i_particle, i_collision_particle))
+
+                    # This collision has been handled already
+                    # Note that since set-retrieval is O(1) via hashing, this is faster than just simply setting the velocities twice.
+                    if collision_pair in collision_pairs:
+                        continue
+
+                    collision_pairs.add(collision_pair)
+                    if print_debug: print(f"Collision between {i_particle} and {i_collision_particle} happened at time {t}")
+                    
+                    ## Implement general linear collision handling:
+                    # See https://en.wikipedia.org/wiki/Elastic_collision#Two-dimensional_collision_with_two_moving_objects
+
+                    # Pull associated quantities with each particle
+                    posn_1, posn_2 = last_posns[[i_particle, i_collision_particle]]
+                    vel_1, vel_2 = last_vels[[i_particle, i_collision_particle]]
+                    m_1, m_2 = self.params.particle_masses[[i_particle, i_collision_particle]]
+
+                    # Find the contact normals: (x_1 - x_2) or (x_2 - x_1)
+                    # By "contact normal" I mean the vector between the center of mass of each object, which is *normal* to the contact surface. 
+                    normal_1 = posn_1 - posn_2                                              # Normal vector centered on "particle"
+                    normal_1 = normal_1 / np.linalg.norm(normal_1)                          # Normalize the vector to unit length
+                    normal_2 = -normal_1                                                    # Normal vector centered on "collision_particle"
+
+                    # Find the normal components of the original velocities of each particle
+                    # This is the component that gets "flipped" by the collision as it's on the line of force. The rest of the velocity is untouched.
+                    # Thus we will scale and subtract this from the original 
+                    # *Note*: norm(v)^2 is the same as dot(v, v)
+                    vel_1_normal = np.dot(vel_1 - vel_2, normal_1)
+                    vel_2_normal = np.dot(vel_2 - vel_1, normal_2)
+
+                    vel_1_new = vel_1 - 2 * m_2 / (m_1 + m_2) * vel_1_normal
+                    vel_2_new = vel_2 - 2 * m_1 / (m_1 + m_2) * vel_2_normal
+
+                    breakpoint()
+                    self.vels[i, :, i_particle] = vel_1_new
+                    self.vels[i, :, i_collision_particle] = vel_2_new
 
             # 3. Now that we have updated all velocities accordingly, let's integrate the velocities to find the new positions
             # TODO: For entities where a collision after the next step is anticipated, we need to do special things to prevent ghosting
