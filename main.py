@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -16,8 +16,8 @@ class ColloidSimParams:
     n_steps:        int = 10
     n_particles:    int = 1
 
-    posns_0:        np.ndarray = np.zeros((3, n_particles))
-    vels_0:         np.ndarray = np.zeros((3, n_particles))
+    posns_0:        np.ndarray = None
+    vels_0:         np.ndarray = None
 
     # Simulation parameters
     dt:             float = 0.01
@@ -27,8 +27,18 @@ class ColloidSimParams:
     box_y:          int = 1
     box_z:          int = 1
 
-    particle_r:         float = 0.025 * np.ones(n_particles)
-    particle_masses:    np.ndarray = 0.01 * np.ones(n_particles)
+    particles_r:    float = None
+    particles_mass: np.ndarray = None
+
+    default_r = 0.025
+    default_mass = 1
+
+    def __post_init__(self):
+        if self.posns_0 is None: self.posns_0 = np.zeros((3, self.n_particles))
+        if self.vels_0 is None: self.vels_0 = np.zeros((3, self.n_particles))
+
+        if self.particles_r is None: self.particles_r = self.default_r * np.ones(self.n_particles)
+        if self.particles_mass is None: self.particles_mass = self.default_mass * np.ones(self.n_particles)
 
 class ColloidSim:
     params = ColloidSimParams()
@@ -82,12 +92,14 @@ class ColloidSim:
 
                 # Check if distances between current particle and any other ones are within the collision threshold
                 # TODO: Elementwise compare against a list of expected collision distances for each particle based on particle.particle_r + collision_particle.particle_r
-                breakpoint()
-                colliding = (distances <= self.params.particle_r[i_particle] * 2) 
+                colliding = (distances <= self.params.particles_r[i_particle] * 2) 
                 colliding[i_particle] = False
 
                 if np.any(colliding):
-                    i_collision_particle = np.argmin(distances) # NOTE: Hopefully choosing the minimum-distance collision will also auto-resolve any multiple-collision scenario
+                    # Find the closest particle - 
+                    # NOTE: Hopefully choosing the minimum-distance collision will also auto-resolve any multiple-collision scenario
+                    min_nonzero_dist = np.min(distances[np.nonzero(distances)])
+                    i_collision_particle = int(np.argwhere(distances == min_nonzero_dist))
                     collision_pair = frozenset((i_particle, i_collision_particle))
 
                     # This collision has been handled already
@@ -102,9 +114,9 @@ class ColloidSim:
                     # See https://en.wikipedia.org/wiki/Elastic_collision#Two-dimensional_collision_with_two_moving_objects
 
                     # Pull associated quantities with each particle
-                    posn_1, posn_2 = last_posns[[i_particle, i_collision_particle]]
-                    vel_1, vel_2 = last_vels[[i_particle, i_collision_particle]]
-                    m_1, m_2 = self.params.particle_masses[[i_particle, i_collision_particle]]
+                    posn_1, posn_2 = last_posns.T[[i_particle, i_collision_particle]]
+                    vel_1, vel_2 = last_vels.T[[i_particle, i_collision_particle]]
+                    m_1, m_2 = self.params.particles_mass[[i_particle, i_collision_particle]]
 
                     # Find the contact normals: (x_1 - x_2) or (x_2 - x_1)
                     # By "contact normal" I mean the vector between the center of mass of each object, which is *normal* to the contact surface. 
@@ -116,13 +128,12 @@ class ColloidSim:
                     # This is the component that gets "flipped" by the collision as it's on the line of force. The rest of the velocity is untouched.
                     # Thus we will scale and subtract this from the original 
                     # *Note*: norm(v)^2 is the same as dot(v, v)
-                    vel_1_normal = np.dot(vel_1 - vel_2, normal_1)
-                    vel_2_normal = np.dot(vel_2 - vel_1, normal_2)
+                    vel_1_normal = np.dot(vel_1 - vel_2, normal_1) * normal_1
+                    vel_2_normal = np.dot(vel_2 - vel_1, normal_2) * normal_2
 
                     vel_1_new = vel_1 - 2 * m_2 / (m_1 + m_2) * vel_1_normal
                     vel_2_new = vel_2 - 2 * m_1 / (m_1 + m_2) * vel_2_normal
 
-                    breakpoint()
                     self.vels[i, :, i_particle] = vel_1_new
                     self.vels[i, :, i_collision_particle] = vel_2_new
 
@@ -136,7 +147,7 @@ if __name__ == "__main__":
     # Set up basic 2-particle test case: particles going towards each other at the same speed
     params = ColloidSimParams(
         n_particles = 2,
-        posns_0 = np.array([[0.05, 0, 0], [-0.05, 0, 0]]).T,
+        posns_0 = np.array([[0.05, 0, 0.005], [-0.05, 0, 0]]).T,
         vels_0 = np.array([[-1, 0, 0], [1, 0, 0]]).T
     )
     sim = ColloidSim(params)
