@@ -42,4 +42,9 @@ def lookAt(eye_posn: np.ndarray, center: np.ndarray, up: np.ndarray, dtype="floa
     out[0:3, 3] = posn
 
     return np.ascontiguousarray(out.T)
-    
+
+def translate(x, y, z, dtype="float32"):
+    out = np.eye(4, dtype=dtype)
+    out[0:3, 3] = np.array([x, y, z])
+
+    return np.ascontiguousarray(out.T)

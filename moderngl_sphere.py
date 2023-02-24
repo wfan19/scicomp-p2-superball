@@ -10,10 +10,11 @@ vertex_shader = '''
 
     layout (location=0) in vec3 in_position;
     uniform mat4 mat_projection;
-    uniform mat4 mat_view;
+    uniform mat4 mat_view;  // Matrix representing camera_T_camera_world
+    uniform mat4 mat_model; // Matrix representing world_T_world_model
 
     void main() {
-        gl_Position = mat_projection * mat_view * vec4(in_position, 1.0);
+        gl_Position = mat_projection * mat_view * mat_model * vec4(in_position, 1.0);
     }
 '''
 
@@ -70,6 +71,7 @@ if __name__ == "__main__":
 
     shader_program['mat_projection'].write(mat_projection)
     shader_program['mat_view'].write(mat_view)
+    shader_program['mat_model'].write(np.eye(4, dtype="float32"))
 
     while True:
         for event in pg.event.get():
@@ -84,9 +86,11 @@ if __name__ == "__main__":
         
         context.clear(color=(0.08, 0.16, 0.18))
 
-        # triangle_vao.render()
+        t = pg.time.get_ticks() * 0.001
+        mat_cube_pose = graphics_utils.translate(np.cos(t), 0, np.sin(t))
+        shader_program['mat_model'].write(mat_cube_pose)
+
         cube_vao.render()
 
         pg.display.flip()
-
         clock.tick(60)
