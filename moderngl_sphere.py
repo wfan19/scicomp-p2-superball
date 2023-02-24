@@ -3,13 +3,17 @@ import moderngl as mgl
 
 import numpy as np
 
+import graphics_utils
+
 vertex_shader = '''
     #version 330
 
     layout (location=0) in vec3 in_position;
+    uniform mat4 mat_projection;
+    uniform mat4 mat_view;
 
     void main() {
-        gl_Position = vec4(in_position, 1.0);
+        gl_Position = mat_projection * mat_view * vec4(in_position, 1.0);
     }
 '''
 
@@ -35,11 +39,12 @@ if __name__ == "__main__":
     context = mgl.create_context()
     shader_program = context.program(vertex_shader=vertex_shader, fragment_shader=fragment_shader)
 
+    # Initialize camera
+    # TODO: Unit testing for all the glm re-implementation functions!
+    mat_projection = graphics_utils.mat_projection(np.deg2rad(50), display[0]/display[1], 0.1, 100)
+    mat_view = graphics_utils.lookAt(np.array([2, 3, 3]), np.array([0, 0, 0]), np.array([0, 1, 0]))
+
     clock = pg.time.Clock()
-        
-    triangle_vertices = np.array([(-0.6, -0.8, 0), (0.6, -0.8, 0), (0, 0.8, 0)], dtype="float32")
-    triangle_vbo = context.buffer(triangle_vertices)
-    triangle_vao = context.vertex_array(shader_program, [(triangle_vbo, '3f', 'in_position')])
 
     cube_vertices = np.array([
         [-1, -1, 1],
@@ -63,12 +68,16 @@ if __name__ == "__main__":
     cube_vbo = context.buffer(cube_vertex_data)
     cube_vao = context.vertex_array(shader_program, [(cube_vbo, '3f', 'in_position')])
 
+    shader_program['mat_projection'].write(mat_projection)
+    shader_program['mat_view'].write(mat_view)
+
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
-                triangle_vbo.release()
                 shader_program.release()
-                triangle_vao.release()
+                
+                cube_vbo.release()
+                cube_vao.release()
 
                 pg.quit()
                 quit()
