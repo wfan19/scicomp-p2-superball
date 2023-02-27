@@ -9,12 +9,17 @@ vertex_shader = '''
     #version 330
 
     layout (location=0) in vec3 in_position;
+    layout (location=1) in vec2 in_textcoord;
+
+    out vec2 uv;
+
     uniform mat4 mat_projection;
     uniform mat4 mat_view;  // Matrix representing camera_T_camera_world
     uniform mat4 mat_model; // Matrix representing world_T_world_model
 
     void main() {
         gl_Position = mat_projection * mat_view * mat_model * vec4(in_position, 1.0);
+        uv = in_textcoord;
     }
 '''
 
@@ -23,8 +28,10 @@ fragment_shader = '''
 
     layout (location=0) out vec4 out_color;
 
+    in vec2 uv;
+    
     void main() {
-        vec3 color = vec3(1, 0, 0);
+        vec3 color = vec3(mod(uv.x / uv.y, 1), mod(uv.x, 2), mod(uv.y, 2));
         out_color = vec4(color, 1.0);
     }
 '''
@@ -38,6 +45,7 @@ if __name__ == "__main__":
     pg.display.set_mode(display, pg.DOUBLEBUF | pg.OPENGL)
 
     context = mgl.create_context()
+    context.enable(flags=mgl.DEPTH_TEST)
     shader_program = context.program(vertex_shader=vertex_shader, fragment_shader=fragment_shader)
 
     # Initialize camera
@@ -69,14 +77,15 @@ if __name__ == "__main__":
     # cube_vbo = context.buffer(cube_vertex_data)
     # cube_vao = context.vertex_array(shader_program, [(cube_vbo, '3f', 'in_position')])
 
-    sphere_vertices, sphere_normals, sphere_uv, sphere_indices = graphics_utils.make_sphere(1, 10, 10)
-    sphere_vbo = context.buffer(sphere_vertices)
+    sphere_vertices, sphere_normals, sphere_uv, sphere_indices = graphics_utils.make_sphere(1, 30, 30)
+    sphere_vbo  = context.buffer(sphere_vertices)
+    uv_vbo      = context.buffer(sphere_uv)
     indices_vbo = context.buffer(sphere_indices)
-    # TODO: VBOs for sphere normals and UVs as well for rendering.
-    # Need vertex and fragment shaders to handle those
 
-    sphere_vao = context.vertex_array(shader_program,
-        [(sphere_vbo, '3f', "in_position")],
+    sphere_vao = context.vertex_array(shader_program, [
+            (sphere_vbo, '3f', 'in_position'),
+            (uv_vbo, '2f', 'in_textcoord')
+        ],
         index_buffer=indices_vbo,
         index_element_size=4
     )
@@ -102,7 +111,7 @@ if __name__ == "__main__":
         context.clear(color=(0.08, 0.16, 0.18))
 
         t = pg.time.get_ticks() * 0.001
-        mat_cube_pose = graphics_utils.translate(np.cos(t), 0, np.sin(t))
+        mat_cube_pose = graphics_utils.translate(0, np.sin(t), 0) @ graphics_utils.rotate(0, 0, 1, t)
         shader_program['mat_model'].write(mat_cube_pose)
 
         # cube_vao.render()

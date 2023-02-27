@@ -1,6 +1,6 @@
 import numpy as np
 
-def mat_projection(fov, aspect, near, far, dtype="float32"):
+def mat_projection(fov, aspect, near, far, dtype=np.float32):
     """ Generation of a projective transform matrix based on camera parameters.
     See https://stackoverflow.com/questions/53245632/general-formula-for-perspective-projection-matrix
     and also https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml
@@ -22,7 +22,7 @@ def mat_projection(fov, aspect, near, far, dtype="float32"):
 
     return np.ascontiguousarray(out.T)
 
-def lookAt(eye_posn: np.ndarray, center: np.ndarray, up: np.ndarray, dtype="float32"):
+def lookAt(eye_posn: np.ndarray, center: np.ndarray, up: np.ndarray, dtype=np.float32):
     """ Generate homogenous transform matrix for camera-world transform, given desired camera position and view angle
     See https://github.com/g-truc/glm/blob/b3f87720261d623986f164b2a7f6a0a938430271/glm/ext/matrix_transform.inl#L99 for reference.
 
@@ -30,7 +30,7 @@ def lookAt(eye_posn: np.ndarray, center: np.ndarray, up: np.ndarray, dtype="floa
         eye_posn (np.ndarray): Desired camera center position
         center (np.ndarray): Point to center in camera view
         up (np.ndarray): Which way the camera's up should be in the world frame
-        dtype (str, optional): _description_. Defaults to "float32".
+        dtype (np.dtype): _description_. Defaults to np.float32.
 
     Returns:
         np.ndarray: 4x4 homogenous transform matrix representing camera_T_camera_world: Transformation from camera center to world center in the camera frame.
@@ -55,14 +55,43 @@ def lookAt(eye_posn: np.ndarray, center: np.ndarray, up: np.ndarray, dtype="floa
 
     return np.ascontiguousarray(out.T)
 
-def translate(x, y, z, dtype="float32"):
+def rotate(x, y, z, theta, dtype=np.float32):
+    """ Generate a pure-rotation 4x4 homogenous transform matrix, using axis-angle as input
+
+    Args:
+        x (float): x-component of rotation axis
+        y (float): y-component of rotation axis
+        z (float): z-component of rotation axis
+        theta (float): angle of rotation
+        dtype (np.dtype): _description_. Defaults to np.float32.
+    """
+
+    axis = np.array([x, y, z])
+    axis = axis / np.linalg.norm(axis)
+
+    mat_skew_sym = np.array([
+        [0, -axis[2], axis[1]],
+        [axis[2], 0, -axis[0]],
+        [-axis[1], axis[0], 0]
+    ])
+    # Rodrigues' formula: the analytic exponential map on the group of 3x3 rotation matrices
+    # Also known as the conversion from axis-angle to rotation matrix representations for rotations
+    R = np.eye(3) + np.sin(theta) * mat_skew_sym + (1 - np.cos(theta)) * (mat_skew_sym @ mat_skew_sym)
+
+    out = np.eye(4)
+    out[0:3, 0:3] = R
+
+    return np.ascontiguousarray(out.astype(dtype).T)
+
+def translate(x, y, z, dtype=np.float32):
     """ Generate a pure-translation 4x4 homogenous transform matrix
+    Reference: See "3D Exponential Map" under https://thenumb.at/Exponential-Rotations/
 
     Args:
         x (float): translation in x direction
         y (float): translation in y direction
         z (float): translation in z direction
-        dtype (str, optional): _description_. Defaults to "float32".
+        dtype (np.dtype): _description_. Defaults to np.float32.
 
     Returns:
         np.ndarray: 4x4 Homogenous transform matrix
@@ -139,7 +168,6 @@ def make_sphere(r, longs, lats):
                 (u_i + 1) * longs   + (v_i + 1)     # Top right corner
             ])
 
-            print((u_i, v_i))
             i += 2
 
     return vertices.flatten(), normals.flatten(), uv.flatten(), indices.flatten()
