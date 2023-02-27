@@ -8,7 +8,7 @@ import plotly.express as px
 
 import streamlit as st
 
-print_debug = False
+print_debug = True
 
 @dataclass
 class ColloidSimParams:
@@ -23,9 +23,7 @@ class ColloidSimParams:
     dt:             float = 0.001
 
     # Dimensions [m]
-    box_x:          int = 1
-    box_y:          int = 1
-    box_z:          int = 1
+    box_dims:       np.ndarray = np.array([2, 2, 2])
 
     particles_r:    float = None
     particles_mass: np.ndarray = None
@@ -95,7 +93,24 @@ class ColloidSim:
                 colliding = (distances <= self.params.particles_r[i_particle] * 2) 
                 colliding[i_particle] = False
 
-                if np.any(colliding):
+                # Check if particle is still in box
+                box_max = 0.5 * np.array([self.params.box_dims]).T
+                box_min = -box_max
+                colliding_with_box = (particle_as_col >= box_max) | (particle_as_col <= box_min)
+
+                if np.any(colliding_with_box):
+                    # Negate the velocity in the direction which encountered a wall
+                    # IE, if encountering a wall for maximum Y bounds, then flip the Y velocity
+                    last_vel = self.vels[i, :, i_particle]
+                    
+                    # Create a mask which corresponds to the offending direction
+                    # If encountering maximum Y bounds, then this should be [0, 1, 0]
+                    collision_dirs_mask = colliding_with_box.astype(np.int32).squeeze()
+                    flip_matrix = np.diag(-collision_dirs_mask) # Diagonalize the negative mask to create a matrix which will flip the correct velocity when multiplied with velocity
+
+                    # Apply the flip via multiplication
+                    self.vels[i, :, i_particle] = flip_matrix @ last_vel
+                elif np.any(colliding):
                     # Find the closest particle - 
                     # NOTE: Hopefully choosing the minimum-distance collision will also auto-resolve any multiple-collision scenario
                     min_nonzero_dist = np.min(distances[np.nonzero(distances)])
