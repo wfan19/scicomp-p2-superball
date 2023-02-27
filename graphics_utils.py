@@ -23,6 +23,18 @@ def mat_projection(fov, aspect, near, far, dtype="float32"):
     return np.ascontiguousarray(out.T)
 
 def lookAt(eye_posn: np.ndarray, center: np.ndarray, up: np.ndarray, dtype="float32"):
+    """ Generate homogenous transform matrix for camera-world transform, given desired camera position and view angle
+    See https://github.com/g-truc/glm/blob/b3f87720261d623986f164b2a7f6a0a938430271/glm/ext/matrix_transform.inl#L99 for reference.
+
+    Args:
+        eye_posn (np.ndarray): Desired camera center position
+        center (np.ndarray): Point to center in camera view
+        up (np.ndarray): Which way the camera's up should be in the world frame
+        dtype (str, optional): _description_. Defaults to "float32".
+
+    Returns:
+        np.ndarray: 4x4 homogenous transform matrix representing camera_T_camera_world: Transformation from camera center to world center in the camera frame.
+    """
     f = center - eye_posn 
     f = f / np.linalg.norm(f)
 
@@ -44,7 +56,90 @@ def lookAt(eye_posn: np.ndarray, center: np.ndarray, up: np.ndarray, dtype="floa
     return np.ascontiguousarray(out.T)
 
 def translate(x, y, z, dtype="float32"):
+    """ Generate a pure-translation 4x4 homogenous transform matrix
+
+    Args:
+        x (float): translation in x direction
+        y (float): translation in y direction
+        z (float): translation in z direction
+        dtype (str, optional): _description_. Defaults to "float32".
+
+    Returns:
+        np.ndarray: 4x4 Homogenous transform matrix
+    """
     out = np.eye(4, dtype=dtype)
     out[0:3, 3] = np.array([x, y, z])
 
     return np.ascontiguousarray(out.T)
+
+def make_sphere(r, longs, lats):
+    """ Generates the geometry (vertices, normals, uvs, indices) for a sphere mesh.
+
+    Args:
+        r (float): Radius of sphere
+        longs (int): Number of longitude lines
+        lats (int): Number of latitude lines
+
+    Returns:
+        np.1dArray: vertices - the list of vertices in 3d position, vectorized
+        np.1dArray: normals - the list of surface normal vectors in 3d position, vectorized
+        np.1dArray: uv - the list of uv coordinates in 2d position, vectorized
+        np.1dArray: indices - the list of indices of vertex points which form individual triangular faces tilling the mesh
+    """
+    vertices = np.zeros((longs*lats, 3), dtype=np.float32)
+    uv = np.zeros((longs*lats, 2), dtype=np.float32)
+    normals = np.zeros((longs*lats, 3), dtype=np.float32)
+    indices = np.zeros((lats * longs * 2, 3), dtype=np.int32)
+
+    u = np.linspace(0, np.pi, lats)
+    v = np.linspace(0, 2*np.pi, longs)
+
+    ## Generate list of all vertices (points) on the sphere's geometry
+    # This is such an un-pythonic way of doing this but oh well
+    i = 0
+    for u_i in u:
+        for v_i in v:
+            # Parameteric equation for a circle
+            vertices[i] = np.array([
+                r*np.sin(u_i)*np.cos(v_i),
+                r*np.sin(u_i)*np.sin(v_i),
+                r*np.cos(u_i)
+            ])
+
+            # Save vector normal to the mesh surface (needed for lighting)
+            # The vector normal to the sphere's surface is the normalized version of the position itself.
+            normals[i] = 1/r * vertices[i]
+
+            # Save points for coordinate grid
+            # Our parameterization is a coordinate grid itself, so we can just save it
+            uv[i] = np.array([
+                u_i, v_i
+            ])
+
+            i += 1
+
+    ## Save indices of vertex-triplets which each correspond to a single triangle face.
+    # Each set of grid-cell spanned by (u_i, v_i) and (u_i+1, v_i+1) contains two triangles
+    i = 0
+    for u_i in range(lats - 1):
+        for v_i in range(longs - 1):
+            # For each grid cell with (u_i, v_i) at the bottom there are two triangles
+
+            # First we do the "left-side" triangle
+            indices[i] = np.array([
+                u_i * longs         + v_i,          # Bottom left corner of grid cell
+                (u_i + 1) * longs   + (v_i + 1),    # Top right corner of grid cell (reach to next row)
+                (u_i) * longs   + (v_i + 1),        # Bottom right corner of grid cell
+            ])
+
+            # Next the "right-side" triangle
+            indices[i+1] = np.array([
+                u_i * longs         + v_i,          # Bottom left corner
+                (u_i + 1) * longs   + v_i,          # Top left corner
+                (u_i + 1) * longs   + (v_i + 1)     # Top right corner
+            ])
+
+            print((u_i, v_i))
+            i += 2
+
+    return vertices.flatten(), normals.flatten(), uv.flatten(), indices.flatten()

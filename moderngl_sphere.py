@@ -5,65 +5,6 @@ import numpy as np
 
 import graphics_utils
 
-def make_sphere(r, longs, lats):
-    vertices = np.zeros((longs*lats, 3), dtype=np.float32)
-    uv = np.zeros((longs*lats, 2), dtype=np.float32)
-    normals = np.zeros((longs*lats, 3), dtype=np.float32)
-    indices = np.zeros((lats * longs * 2, 3), dtype=np.int32)
-
-    u = np.linspace(0, np.pi, lats)
-    v = np.linspace(0, 2*np.pi, longs)
-
-    ## Generate list of all vertices (points) on the sphere's geometry
-    # This is such an un-pythonic way of doing this but oh well
-    i = 0
-    for u_i in u:
-        for v_i in v:
-            # Parameteric equation for a circle
-            vertices[i] = np.array([
-                r*np.sin(u_i)*np.cos(v_i),
-                r*np.sin(u_i)*np.sin(v_i),
-                r*np.cos(u_i)
-            ])
-
-            # Save vector normal to the mesh surface (needed for lighting)
-            # The vector normal to the sphere's surface is the normalized version of the position itself.
-            normals[i] = 1/r * vertices[i]
-
-            # Save points for coordinate grid
-            # Our parameterization is a coordinate grid itself, so we can just save it
-            uv[i] = np.array([
-                u_i, v_i
-            ])
-
-            i += 1
-
-    ## Save indices of vertex-triplets which each correspond to a single triangle face.
-    # Each set of grid-cell spanned by (u_i, v_i) and (u_i+1, v_i+1) contains two triangles
-    i = 0
-    for u_i in range(lats - 1):
-        for v_i in range(longs - 1):
-            # For each grid cell with (u_i, v_i) at the bottom there are two triangles
-
-            # First we do the "left-side" triangle
-            indices[i] = np.array([
-                u_i * longs         + v_i,          # Bottom left corner of grid cell
-                (u_i + 1) * longs   + (v_i + 1),    # Top right corner of grid cell (reach to next row)
-                (u_i) * longs   + (v_i + 1),        # Bottom right corner of grid cell
-            ])
-
-            # Next the "right-side" triangle
-            indices[i+1] = np.array([
-                u_i * longs         + v_i,          # Bottom left corner
-                (u_i + 1) * longs   + v_i,          # Top left corner
-                (u_i + 1) * longs   + (v_i + 1)     # Top right corner
-            ])
-
-            print((u_i, v_i))
-            i += 2
-
-    return vertices.flatten(), normals.flatten(), uv.flatten(), indices.flatten()
-
 vertex_shader = '''
     #version 330
 
@@ -128,7 +69,7 @@ if __name__ == "__main__":
     # cube_vbo = context.buffer(cube_vertex_data)
     # cube_vao = context.vertex_array(shader_program, [(cube_vbo, '3f', 'in_position')])
 
-    sphere_vertices, sphere_normals, sphere_uv, sphere_indices = make_sphere(1, 10, 10)
+    sphere_vertices, sphere_normals, sphere_uv, sphere_indices = graphics_utils.make_sphere(1, 10, 10)
     sphere_vbo = context.buffer(sphere_vertices)
     indices_vbo = context.buffer(sphere_indices)
     # TODO: VBOs for sphere normals and UVs as well for rendering.
@@ -162,7 +103,6 @@ if __name__ == "__main__":
 
         t = pg.time.get_ticks() * 0.001
         mat_cube_pose = graphics_utils.translate(np.cos(t), 0, np.sin(t))
-        # mat_cube_pose =  graphics_utils.translate(0, 0, 0)
         shader_program['mat_model'].write(mat_cube_pose)
 
         # cube_vao.render()
