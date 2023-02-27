@@ -18,12 +18,12 @@ $ python3 main.py
 - [x] Collision between balls and box
 - [x] Collision between balls and each other
 - [x] Arbitrary system of balls in box
-- [] Brownian motion
-- [] Glass transition simulation
+- [ ] Brownian motion
+- [ ] Glass transition simulation
 - [x] Hardware accelerated 3D graphcis
-- [] High speed simulation using Quad/Oct/KD-trees for broad/narrow phase
-- [] Arbitrary / non-spherical shape collision handling
-- [] Arbitrary / non-spherical shape visualization
+- [ ] High speed simulation using Quad/Oct/KD-trees for broad/narrow phase
+- [ ] Arbitrary / non-spherical shape collision handling
+- [ ] Arbitrary / non-spherical shape visualization
 
 ## Code organization
 The main files for thie project are the following:
