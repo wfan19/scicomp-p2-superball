@@ -1,5 +1,5 @@
 # Colloid Sim 3D
-![The simulator in action!](https://media.discordapp.net/attachments/421939066930462723/1079734438130360341/image.png?width=716&height=468)
+![The simulator in action!](https://cdn.discordapp.com/attachments/560953599081840651/1079740957303521341/ezgif-5-6917e83500.gif)
 
 ## Setup
 The only two packages you need are `numpy` and `moderngl`. So go ahead:
