@@ -32,8 +32,17 @@ class ColloidSimParams:
     default_mass:   float = 1
 
     def __post_init__(self):
-        if self.posns_0 is None: self.posns_0 = np.zeros((3, self.n_particles))
-        if self.vels_0 is None: self.vels_0 = np.zeros((3, self.n_particles))
+        # if self.posns_0 is None: self.posns_0 = np.zeros((3, self.n_particles))
+        # if self.vels_0 is None: self.vels_0 = np.zeros((3, self.n_particles))
+
+        rng = np.random.default_rng(1)
+        posns_max = np.reshape(self.box_dims, (3, 1)) / 2
+
+        if self.posns_0 is None: 
+            self.posns_0 = rng.uniform(-posns_max, posns_max, (3, self.n_particles))
+        if self.vels_0 is None: 
+            vels_max = np.ones((3, 1))
+            self.vels_0 = rng.uniform(-vels_max, vels_max, (3, self.n_particles))
 
         if self.particles_r is None: self.particles_r = self.default_r * np.ones(self.n_particles)
         if self.particles_mass is None: self.particles_mass = self.default_mass * np.ones(self.n_particles)

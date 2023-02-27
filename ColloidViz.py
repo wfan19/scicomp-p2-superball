@@ -12,7 +12,7 @@ class Camera():
     mat_view:           np.ndarray
     mat_proj:           np.ndarray
 
-    position:           np.ndarray = np.array([2, 3, 3], dtype=np.float32)
+    position:           np.ndarray = np.array([0.5, 4, 1.5], dtype=np.float32)
     forward:            np.ndarray = np.array([1, 0, 0], dtype=np.float32)
     right:              np.ndarray = np.array([0, 1, 0], dtype=np.float32)
     up:                 np.ndarray = np.array([0, 0, 1], dtype=np.float32)
@@ -142,6 +142,7 @@ class ColloidViz():
             self.spheres.append(VizSphere(self.context, self.camera, r))
 
         ## Render the boundary box
+        # TODO: This is a lot of code - should be moved elsewhere
         with open("default.vert") as file:
             vertex_shader = file.read()
         with open("default.frag") as file:
@@ -151,35 +152,20 @@ class ColloidViz():
         self.box_program['mat_projection'].write(self.camera.mat_proj)
         self.box_program['mat_view'].write(self.camera.mat_view)
 
-        ## Build the outsidie boundary cube
+        # Build the outsidie boundary cube
         # box_vertices = graphics_utils.make_cube(self.sim.params.box_dims[0])
         l_x, l_y, l_z = self.sim.params.box_dims
-        box_vertices = 0.5 * np.array([
-            # First the bottom four edges
-            [-l_x, -l_y, -l_z], [-l_x, l_y, -l_z],
-            [-l_x, l_y, -l_z], [l_x, l_y, -l_z],
-            [l_x, l_y, -l_z], [l_x, -l_y, -l_z],
-            [l_x, -l_y, -l_z], [-l_x, -l_y, -l_z],
-            
-            # Next the top four
-            [-l_x, -l_y, l_z], [-l_x, l_y, l_z],
-            [-l_x, l_y, l_z], [l_x, l_y, l_z],
-            [l_x, l_y, l_z], [l_x, -l_y, l_z],
-            [l_x, -l_y, l_z], [-l_x, -l_y, l_z],
-
-            # Next the four vertical ones
-            [-l_x, -l_y, -l_z], [-l_x, -l_y, l_z],
-            [l_x, -l_y, -l_z], [l_x, -l_y, l_z],
-            [-l_x, l_y, -l_z], [-l_x, l_y, l_z],
-            [l_x, l_y, -l_z], [l_x, l_y, l_z],
-        ], dtype=np.float32).flatten()
+        box_vertices = graphics_utils.make_wireframe_cube(l_x, l_y, l_z)
         box_vbo = self.context.buffer(box_vertices)
         self.box_vao = self.context.vertex_array(self.box_program, [(box_vbo, '3f', "in_position")], mode=mgl.LINES)
     
-    def visualize(self, control_camera=False):
+    def visualize(self, camera_posn= np.array([0.5, 4, 1.5]), control_camera=False):
         if control_camera:
             pg.mouse.set_visible(False)
             pg.event.set_grab(True)
+
+        self.camera.position = camera_posn
+        self.camera.mat_view = graphics_utils.lookAt(camera_posn, np.array([0, 0, 0]), np.array([0, 0, 1]))
 
         for positions in self.sim.posns:
             # First detect if there are exit conditions

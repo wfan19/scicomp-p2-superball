@@ -197,3 +197,25 @@ def make_cube(l):
     # TODO: Cube UV and normals would be nice but not necessary since for now we're just using it for the box
 
     return cube_vertex_data
+
+def make_wireframe_cube(x, y, z):
+    box_vertices = 0.5 * np.array([
+        # First the bottom four edges
+        [-x, -y, -z], [-x, y, -z],
+        [-x, y, -z], [x, y, -z],
+        [x, y, -z], [x, -y, -z],
+        [x, -y, -z], [-x, -y, -z],
+        
+        # Next the top four
+        [-x, -y, z], [-x, y, z],
+        [-x, y, z], [x, y, z],
+        [x, y, z], [x, -y, z],
+        [x, -y, z], [-x, -y, z],
+
+        # Next the four vertical ones
+        [-x, -y, -z], [-x, -y, z],
+        [x, -y, -z], [x, -y, z],
+        [-x, y, -z], [-x, y, z],
+        [x, y, -z], [x, y, z],
+    ], dtype=np.float32).flatten()
+    return box_vertices
