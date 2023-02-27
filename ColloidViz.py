@@ -113,6 +113,9 @@ class ColloidViz():
     context:    mgl.Context
     spheres:    List[VizSphere]
 
+    box_program:    mgl.Program
+    box_vao:        mgl.vertex_array
+
     camera:     Camera
 
     clock:      pg.time.Clock
@@ -120,23 +123,58 @@ class ColloidViz():
     def __init__(self, colloid_sim: ColloidSim, window_size = (1200, 900)):
         self.sim = colloid_sim
 
+        # Set up the Pygame window
         pg.init()
         self.clock = pg.time.Clock()
-
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MINOR_VERSION, 3)
         pg.display.set_mode(window_size, pg.DOUBLEBUF | pg.OPENGL)
-        pg.event.set_grab(True)
-        pg.mouse.set_visible(False)
 
+        ## Initialize Opengl context
         self.context = mgl.create_context()
         self.context.enable(flags=mgl.DEPTH_TEST)
         
         self.camera = Camera(window_size)
 
+        ## Create the individual sphere meshes and buffer them into GPU memory
         self.spheres = []
         for r in colloid_sim.params.particles_r:
             self.spheres.append(VizSphere(self.context, self.camera, r))
+
+        ## Render the boundary box
+        with open("default.vert") as file:
+            vertex_shader = file.read()
+        with open("default.frag") as file:
+            fragment_shader = file.read()
+        self.box_program = self.context.program(vertex_shader=vertex_shader, fragment_shader=fragment_shader)
+        self.box_program['mat_model'].write(graphics_utils.translate(0, 0, 0))
+        self.box_program['mat_projection'].write(self.camera.mat_proj)
+        self.box_program['mat_view'].write(self.camera.mat_view)
+
+        ## Build the outsidie boundary cube
+        # box_vertices = graphics_utils.make_cube(self.sim.params.box_dims[0])
+        l_x, l_y, l_z = self.sim.params.box_dims
+        box_vertices = 0.5 * np.array([
+            # First the bottom four edges
+            [-l_x, -l_y, -l_z], [-l_x, l_y, -l_z],
+            [-l_x, l_y, -l_z], [l_x, l_y, -l_z],
+            [l_x, l_y, -l_z], [l_x, -l_y, -l_z],
+            [l_x, -l_y, -l_z], [-l_x, -l_y, -l_z],
+            
+            # Next the top four
+            [-l_x, -l_y, l_z], [-l_x, l_y, l_z],
+            [-l_x, l_y, l_z], [l_x, l_y, l_z],
+            [l_x, l_y, l_z], [l_x, -l_y, l_z],
+            [l_x, -l_y, l_z], [-l_x, -l_y, l_z],
+
+            # Next the four vertical ones
+            [-l_x, -l_y, -l_z], [-l_x, -l_y, l_z],
+            [l_x, -l_y, -l_z], [l_x, -l_y, l_z],
+            [-l_x, l_y, -l_z], [-l_x, l_y, l_z],
+            [l_x, l_y, -l_z], [l_x, l_y, l_z],
+        ], dtype=np.float32).flatten()
+        box_vbo = self.context.buffer(box_vertices)
+        self.box_vao = self.context.vertex_array(self.box_program, [(box_vbo, '3f', "in_position")], mode=mgl.LINES)
     
     def visualize(self):
         for positions in self.sim.posns:
@@ -155,9 +193,12 @@ class ColloidViz():
             dt = self.clock.tick(60)
             self.context.clear(color=(0.08, 0.16, 0.18))
 
-            self.camera.update(dt)
+            # self.camera.update(dt)
 
             for i, sphere in enumerate(self.spheres):
                 sphere.draw(positions.T[i])
+
+            self.box_program["mat_view"].write(self.camera.mat_view)
+            self.box_vao.render()
 
             pg.display.flip()

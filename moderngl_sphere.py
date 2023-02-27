@@ -30,28 +30,6 @@ if __name__ == "__main__":
 
     clock = pg.time.Clock()
 
-    # cube_vertices = np.array([
-    #     [-1, -1, 1],
-    #     [1, -1, 1],
-    #     [1, 1, 1],
-    #     [-1, 1, 1],
-    #     [-1, 1, -1],
-    #     [-1, -1, -1],
-    #     [1, -1, -1],
-    #     [1, 1, -1]
-    # ], dtype="float32")
-    # cube_triangles = [
-    #     [0, 2, 3], [0, 1, 2],
-    #     [1, 7, 2], [1, 6, 7],
-    #     [6, 5, 4], [4, 7, 6],
-    #     [3, 4, 5], [3, 5, 0],
-    #     [3, 7, 4], [3, 2, 7],
-    #     [0, 6, 1], [0, 5, 6],
-    # ]
-    # cube_vertex_data = np.array([cube_vertices[i_vertex] for triangle in cube_triangles for i_vertex in triangle])
-    # cube_vbo = context.buffer(cube_vertex_data)
-    # cube_vao = context.vertex_array(shader_program, [(cube_vbo, '3f', 'in_position')])
-
     sphere_vertices, sphere_normals, sphere_uv, sphere_indices = graphics_utils.make_sphere(1, 30, 30)
     sphere_vbo  = context.buffer(sphere_vertices)
     uv_vbo      = context.buffer(sphere_uv)
@@ -76,9 +54,6 @@ if __name__ == "__main__":
 
                 sphere_vbo.release()
                 sphere_vao.release()
-                
-                # cube_vbo.release()
-                # cube_vao.release()
 
                 pg.quit()
                 quit()
@@ -89,7 +64,6 @@ if __name__ == "__main__":
         mat_cube_pose = graphics_utils.rotate(0, 0, 1, t) @ graphics_utils.translate(np.cos(t), np.sin(t), t * 0.25) 
         shader_program['mat_model'].write(mat_cube_pose)
 
-        # cube_vao.render()
         sphere_vao.render()
 
         pg.display.flip()

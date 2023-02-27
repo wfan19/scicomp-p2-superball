@@ -171,3 +171,29 @@ def make_sphere(r, longs, lats):
             i += 2
 
     return vertices.flatten(), normals.flatten(), uv.flatten(), indices.flatten()
+
+def make_cube(l):
+    # TODO: Support for different xyz dimensions
+    cube_vertices = l/2 * np.array([
+        [-1, -1, 1],
+        [1, -1, 1],
+        [1, 1, 1],
+        [-1, 1, 1],
+        [-1, 1, -1],
+        [-1, -1, -1],
+        [1, -1, -1],
+        [1, 1, -1]
+    ], dtype=np.float32)
+    cube_triangles = [
+        [0, 2, 3], [0, 1, 2],
+        [1, 7, 2], [1, 6, 7],
+        [6, 5, 4], [4, 7, 6],
+        [3, 4, 5], [3, 5, 0],
+        [3, 7, 4], [3, 2, 7],
+        [0, 6, 1], [0, 5, 6],
+    ]
+    cube_vertex_data = np.array([cube_vertices[i_vertex] for triangle in cube_triangles for i_vertex in triangle])
+    
+    # TODO: Cube UV and normals would be nice but not necessary since for now we're just using it for the box
+
+    return cube_vertex_data

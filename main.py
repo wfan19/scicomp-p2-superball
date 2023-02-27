@@ -10,10 +10,11 @@ if __name__ == "__main__":
     # Set up basic 2-particle test case: particles going towards each other at the same speed
     params = ColloidSimParams(
         n_particles = 2,
-        posns_0 = np.array([[0.5, 0.01, 0.005], [-0.5, 0, 0]]).T,
+        posns_0 = np.array([[0.5, 0., 0], [-0.5, 0, 0]]).T,
         vels_0 = np.array([[-2, 0, 0], [1, 0, 0]]).T,
+        box_dims = np.array([2, 2, 2]), # For now please set them to be all the same
         default_r = 0.1,
-        n_steps = 1000,
+        n_steps = 5000,
         dt=0.01
     )
     sim = ColloidSim(params)
