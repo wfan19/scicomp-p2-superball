@@ -5,37 +5,6 @@ import numpy as np
 
 import graphics_utils
 
-vertex_shader = '''
-    #version 330
-
-    layout (location=0) in vec3 in_position;
-    layout (location=1) in vec2 in_textcoord;
-
-    out vec2 uv;
-
-    uniform mat4 mat_projection;
-    uniform mat4 mat_view;  // Matrix representing camera_T_camera_world
-    uniform mat4 mat_model; // Matrix representing world_T_world_model
-
-    void main() {
-        gl_Position = mat_projection * mat_view * mat_model * vec4(in_position, 1.0);
-        uv = in_textcoord;
-    }
-'''
-
-fragment_shader = '''
-    #version 330
-
-    layout (location=0) out vec4 out_color;
-
-    in vec2 uv;
-    
-    void main() {
-        vec3 color = vec3(mod(uv.x / uv.y, 1), mod(uv.x, 2), mod(uv.y, 2));
-        out_color = vec4(color, 1.0);
-    }
-'''
-
 if __name__ == "__main__":
     pg.init()
     display = (800, 600)
@@ -46,12 +15,18 @@ if __name__ == "__main__":
 
     context = mgl.create_context()
     context.enable(flags=mgl.DEPTH_TEST)
+
+    with open("default.vert") as file:
+        vertex_shader = file.read()
+    with open("default.frag") as file:
+        fragment_shader = file.read()
+
     shader_program = context.program(vertex_shader=vertex_shader, fragment_shader=fragment_shader)
 
     # Initialize camera
     # TODO: Unit testing for all the glm re-implementation functions!
     mat_projection = graphics_utils.mat_projection(np.deg2rad(50), display[0]/display[1], 0.1, 100)
-    mat_view = graphics_utils.lookAt(np.array([2, 3, 3]), np.array([0, 0, 0]), np.array([0, 1, 0]))
+    mat_view = graphics_utils.lookAt(np.array([2, 3, 3]), np.array([0, 0, 0]), np.array([0, 0, 1]))
 
     clock = pg.time.Clock()
 
@@ -111,7 +86,7 @@ if __name__ == "__main__":
         context.clear(color=(0.08, 0.16, 0.18))
 
         t = pg.time.get_ticks() * 0.001
-        mat_cube_pose = graphics_utils.translate(0, np.sin(t), 0) @ graphics_utils.rotate(0, 0, 1, t)
+        mat_cube_pose = graphics_utils.rotate(0, 0, 1, t) @ graphics_utils.translate(np.cos(t), np.sin(t), t * 0.25) 
         shader_program['mat_model'].write(mat_cube_pose)
 
         # cube_vao.render()
