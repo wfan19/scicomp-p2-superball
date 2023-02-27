@@ -30,8 +30,8 @@ class ColloidSimParams:
     particles_r:    float = None
     particles_mass: np.ndarray = None
 
-    default_r = 0.025
-    default_mass = 1
+    default_r:      float = 0.025
+    default_mass:   float = 1
 
     def __post_init__(self):
         if self.posns_0 is None: self.posns_0 = np.zeros((3, self.n_particles))
