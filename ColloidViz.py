@@ -176,7 +176,11 @@ class ColloidViz():
         box_vbo = self.context.buffer(box_vertices)
         self.box_vao = self.context.vertex_array(self.box_program, [(box_vbo, '3f', "in_position")], mode=mgl.LINES)
     
-    def visualize(self):
+    def visualize(self, control_camera=False):
+        if control_camera:
+            pg.mouse.set_visible(False)
+            pg.event.set_grab(True)
+
         for positions in self.sim.posns:
             # First detect if there are exit conditions
             for event in pg.event.get():
@@ -193,7 +197,8 @@ class ColloidViz():
             dt = self.clock.tick(60)
             self.context.clear(color=(0.08, 0.16, 0.18))
 
-            # self.camera.update(dt)
+            if control_camera:
+                self.camera.update(dt)
 
             for i, sphere in enumerate(self.spheres):
                 sphere.draw(positions.T[i])

@@ -21,4 +21,4 @@ if __name__ == "__main__":
     sim.simulate()
 
     viz = ColloidViz(sim)
-    viz.visualize()
+    viz.visualize(control_camera=True)
