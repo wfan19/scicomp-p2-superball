@@ -6,9 +6,10 @@ import numpy as np
 import graphics_utils
 
 def make_sphere(r, longs, lats):
-    vertices = np.zeros((longs*lats, 3))
-    uv = np.zeros((longs*lats, 2))
-    normals = np.zeros((longs*lats, 3))
+    vertices = np.zeros((longs*lats, 3), dtype=np.float32)
+    uv = np.zeros((longs*lats, 2), dtype=np.float32)
+    normals = np.zeros((longs*lats, 3), dtype=np.float32)
+    indices = np.zeros((lats * longs * 2, 3), dtype=np.int32)
 
     u = np.linspace(0, np.pi, lats)
     v = np.linspace(0, 2*np.pi, longs)
@@ -39,7 +40,6 @@ def make_sphere(r, longs, lats):
 
     ## Save indices of vertex-triplets which each correspond to a single triangle face.
     # Each set of grid-cell spanned by (u_i, v_i) and (u_i+1, v_i+1) contains two triangles
-    indices = np.zeros((lats * longs * 2, 3))
     i = 0
     for u_i in range(lats - 1):
         for v_i in range(longs - 1):
@@ -59,9 +59,10 @@ def make_sphere(r, longs, lats):
                 (u_i + 1) * longs   + (v_i + 1)     # Top right corner
             ])
 
+            print((u_i, v_i))
             i += 2
 
-    return vertices, uv, normals
+    return vertices.flatten(), normals.flatten(), uv.flatten(), indices.flatten()
 
 vertex_shader = '''
     #version 330
@@ -105,27 +106,39 @@ if __name__ == "__main__":
 
     clock = pg.time.Clock()
 
-    cube_vertices = np.array([
-        [-1, -1, 1],
-        [1, -1, 1],
-        [1, 1, 1],
-        [-1, 1, 1],
-        [-1, 1, -1],
-        [-1, -1, -1],
-        [1, -1, -1],
-        [1, 1, -1]
-    ], dtype="float32")
-    cube_triangles = [
-        [0, 2, 3], [0, 1, 2],
-        [1, 7, 2], [1, 6, 7],
-        [6, 5, 4], [4, 7, 6],
-        [3, 4, 5], [3, 5, 0],
-        [3, 7, 4], [3, 2, 7],
-        [0, 6, 1], [0, 5, 6],
-    ]
-    cube_vertex_data = np.array([cube_vertices[i_vertex] for triangle in cube_triangles for i_vertex in triangle])
-    cube_vbo = context.buffer(cube_vertex_data)
-    cube_vao = context.vertex_array(shader_program, [(cube_vbo, '3f', 'in_position')])
+    # cube_vertices = np.array([
+    #     [-1, -1, 1],
+    #     [1, -1, 1],
+    #     [1, 1, 1],
+    #     [-1, 1, 1],
+    #     [-1, 1, -1],
+    #     [-1, -1, -1],
+    #     [1, -1, -1],
+    #     [1, 1, -1]
+    # ], dtype="float32")
+    # cube_triangles = [
+    #     [0, 2, 3], [0, 1, 2],
+    #     [1, 7, 2], [1, 6, 7],
+    #     [6, 5, 4], [4, 7, 6],
+    #     [3, 4, 5], [3, 5, 0],
+    #     [3, 7, 4], [3, 2, 7],
+    #     [0, 6, 1], [0, 5, 6],
+    # ]
+    # cube_vertex_data = np.array([cube_vertices[i_vertex] for triangle in cube_triangles for i_vertex in triangle])
+    # cube_vbo = context.buffer(cube_vertex_data)
+    # cube_vao = context.vertex_array(shader_program, [(cube_vbo, '3f', 'in_position')])
+
+    sphere_vertices, sphere_normals, sphere_uv, sphere_indices = make_sphere(1, 10, 10)
+    sphere_vbo = context.buffer(sphere_vertices)
+    indices_vbo = context.buffer(sphere_indices)
+    # TODO: VBOs for sphere normals and UVs as well for rendering.
+    # Need vertex and fragment shaders to handle those
+
+    sphere_vao = context.vertex_array(shader_program,
+        [(sphere_vbo, '3f', "in_position")],
+        index_buffer=indices_vbo,
+        index_element_size=4
+    )
 
     shader_program['mat_projection'].write(mat_projection)
     shader_program['mat_view'].write(mat_view)
@@ -135,9 +148,12 @@ if __name__ == "__main__":
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 shader_program.release()
+
+                sphere_vbo.release()
+                sphere_vao.release()
                 
-                cube_vbo.release()
-                cube_vao.release()
+                # cube_vbo.release()
+                # cube_vao.release()
 
                 pg.quit()
                 quit()
@@ -146,9 +162,11 @@ if __name__ == "__main__":
 
         t = pg.time.get_ticks() * 0.001
         mat_cube_pose = graphics_utils.translate(np.cos(t), 0, np.sin(t))
+        # mat_cube_pose =  graphics_utils.translate(0, 0, 0)
         shader_program['mat_model'].write(mat_cube_pose)
 
-        cube_vao.render()
+        # cube_vao.render()
+        sphere_vao.render()
 
         pg.display.flip()
         clock.tick(60)
