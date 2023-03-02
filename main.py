@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import pickle
 
 import numpy as np
 
@@ -12,45 +13,63 @@ try:
 except:
     print("No profiler found. Not running profiler.")
 
-SCENARIO = "ten_ball"
-REAL_TIME = True
-PRINT_DEBUG = True
+SCENARIO = "many_ball"
+REAL_TIME = False
+PRINT_DEBUG = False
+BROWNIAN = False
 
 if __name__ == "__main__":
 
-    if SCENARIO == "two_ball":
-        # Set up basic 2-particle test case: particles going towards each other at the same speed
+    if SCENARIO == "one_ball":
+        # One ball: tunneling/rollback test
         params = ColloidSimParams(
-            n_particles = 2,
+            n_particles = 1,
             box_dims = np.array([1, 1, 1]),
-            posns_0 = np.array([[0.25, 0, 0], [-0.25, 0, 0]]).T,
-            vels_0= np.array([[1, 0, 0], [0.5, 0, 0]]).T,
+            posns_0 = np.array([[0.5, 0, 0]]).T,
+            vels_0= np.array([[1000, 0, 0]]).T,
 
             default_r = 0.1, # Currently still just support single radius
 
             # Step and dt to get "real-time" simulations
             # Note that you don't have to follow this; if you crank up the step count or lower dt it'll just be slower than real time
-            n_steps = int(60*60*0.5),  # The simulator runs at 60fps, so this is enough frames for 2mins
+            length=0.001,  # The simulator runs at 60fps, so this is enough frames for 2mins
+            dt=0.00001,             # Simulator runs at 60fps
+            print_debug=PRINT_DEBUG
+        )
+    elif SCENARIO == "two_ball":
+        # Set up basic 2-particle test case: particles going towards each other at the same speed
+        params = ColloidSimParams(
+            n_particles = 2,
+            box_dims = np.array([1, 1, 1]),
+            posns_0 = np.array([[0.5, 0, 0], [-0.5, 0, 0]]).T,
+            vels_0= np.array([[0.25, 0, 0], [0.5, 0, 0]]).T,
+
+            default_r = 0.1, # Currently still just support single radius
+
+            # Step and dt to get "real-time" simulations
+            # Note that you don't have to follow this; if you crank up the step count or lower dt it'll just be slower than real time
+            length = 60,  # The simulator runs at 60fps, so this is enough frames for 2mins
             dt=1/60,             # Simulator runs at 60fps
             print_debug=PRINT_DEBUG
         )
     
-    elif SCENARIO == "ten_ball":
+    elif SCENARIO == "many_ball":
         # 10 balls in a small box case.
         params = ColloidSimParams(
             n_particles = 30,
             box_dims = np.array([1, 1, 1]),
 
-            default_r = 0.1, # Currently still just support single radius
+            default_r = 0.05, # Currently still just support single radius
 
             # Step and dt to get "real-time" simulations
             # Note that you don't have to follow this; if you crank up the step count or lower dt it'll just be slower than real time
-            n_steps = int(60*60*0.5),  # The simulator runs at 60fps, so this is enough frames for 2mins
+            length = 60,  # The simulator runs at 60fps, so this is enough frames for 2mins
             dt=1/60,             # Simulator runs at 60fps
             print_debug=PRINT_DEBUG
         )
     else:
         print("Invalid scenario name. Exiting.")
+        quit()
 
     ## Create simulator
     sim = ColloidSim(params)
@@ -59,9 +78,11 @@ if __name__ == "__main__":
     viz = ColloidViz(params, camera_posn=np.array([0.5, 2.5, 1]), control_camera=False)
 
     if "pyinstrument" in sys.modules:
+        # Run profiler if available (for development purposes only)
         profiler = Profiler()
         profiler.start()
 
+    ## Run simulation
     if REAL_TIME:
         for i, t in enumerate(sim.timesteps):
 
@@ -89,3 +110,6 @@ if __name__ == "__main__":
     if "pyinstrument" in sys.modules:
         profiler.stop()
         profiler.print()
+
+    with open(f"{SCENARIO}.pkl", "wb") as file:
+        pickle.dump(sim, file)
