@@ -14,7 +14,7 @@ except:
     print("No profiler found. Not running profiler.")
 
 SCENARIO = "many_ball"
-REAL_TIME = False
+REAL_TIME = True
 PRINT_DEBUG = False
 BROWNIAN = False
 

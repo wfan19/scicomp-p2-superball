@@ -5,14 +5,15 @@ from dataclasses import dataclass, field
 @dataclass
 class ColloidSimParams:
     # Simulation timestep and particle counts
-    n_steps:        int = 100
     n_particles:    int = 1
 
     posns_0:        np.ndarray = None
     vels_0:         np.ndarray = None
 
     # Simulation parameters
+    length:         float = 1
     dt:             float = 0.001
+    n_steps:        int = -1
 
     # Dimensions [m]
     box_dims:       np.ndarray = np.array([2, 2, 2])
@@ -26,8 +27,7 @@ class ColloidSimParams:
     print_debug:    bool = False
 
     def __post_init__(self):
-        # if self.posns_0 is None: self.posns_0 = np.zeros((3, self.n_particles))
-        # if self.vels_0 is None: self.vels_0 = np.zeros((3, self.n_particles))
+        self.n_steps = int(self.length / self.dt)
 
         rng = np.random.default_rng(1)
         posns_max = np.reshape(self.box_dims, (3, 1)) / 2
@@ -100,11 +100,13 @@ class ColloidSim:
             colliding[i_particle] = False
 
             # Check if particle is still in box
+            # Results in a list of if each component of the particle position is outside of the box bounds
             box_max = 0.5 * np.array([self.params.box_dims]).T
             box_min = -box_max
             colliding_with_box = (particle_as_col >= box_max) | (particle_as_col <= box_min)
 
             if np.any(colliding_with_box):
+                if self.params.print_debug: print(f"Collision between {i_particle} and box happened at time {t}")
                 # Negate the velocity in the direction which encountered a wall
                 # IE, if encountering a wall for maximum Y bounds, then flip the Y velocity
                 last_vel = last_vels[:, i_particle]
@@ -162,6 +164,66 @@ class ColloidSim:
         # TODO: For entities where a collision after the next step is anticipated, we need to do special things to prevent ghosting
         # r_next = r_current + vel * dt
         next_posns = last_posns + next_vels * self.params.dt
+
+        ## ====================== WORK IN PROGRESS Continuous Collision Detection code =============================
+        # particles_out_of_box = (next_posns >= box_max) | (next_posns <= box_min)
+        # rollback_particles = np.argwhere(np.any(particles_out_of_box, axis=0))
+
+        # for i_particle in rollback_particles:
+        #     last_particle_posn = last_posns[:, i_particle]
+        #     current_particle_vel = next_vels[:, i_particle]
+            
+        #     # Vector of booleans corresponding to which component went out of bounds
+        #     # ie, if particle is over the z-bound of the box, then this is [False, False, True]
+        #     particle_components_out_of_box = particles_out_of_box[:, i_particle]
+        #     i_out_of_bound_component = np.argwhere(particle_components_out_of_box.squeeze()).squeeze()
+
+        #     change_dirs_mask = np.int32(particle_components_out_of_box) + np.int32(np.logical_not(particle_components_out_of_box))
+        #     new_vel = np.diag(change_dirs_mask.flatten()) @ current_particle_vel
+
+        #     # If more than one coordinates out of bounds, we just give up, take the naive reflected velocity, and add that as the "rollback"
+        #     if np.size(i_out_of_bound_component) > 1:
+        #         next_posns[:, i_particle] = last_particle_posn + new_vel
+        #         next_vels[:, i_particle] = new_vel
+        #         continue
+            
+        #     # Otherwise, we try to interpolate the correct collision time and use this to "rollback" to the correct interpolated bounce behavior
+
+        #     # We also need to know if the particle was over the max or min
+        #     box_bound = box_max
+        #     try:
+        #         if next_posns[i_out_of_bound_component, i_particle] < 0:
+        #             box_bound = box_min
+        #     except:
+        #         breakpoint()
+
+        #     # Now we know which plane the particle went out of. We can finally construct the plane and calculate the time of impact
+        #     plane_point = np.diag(particle_components_out_of_box.squeeze()) @ box_bound
+        #     plane_normal = plane_point / np.linalg.norm(plane_point)
+
+        #     # X(t) = X_0 + V*t
+        #     # Given plane point P and plane normal n, the distance to the plane is
+        #     # D(t) = (X(t) - p) dot n      
+        #     # D(t) = (X_0 + V*t - p)⋅n      # Substitute in constant velocity movement
+        #     # D(t) = t * V⋅n + (X_0 - p)⋅n  # Distribute the dot product
+        #     # 
+        #     # Set D(t) = 0 and solve for t: 
+        #     # t = -((X_0 - p)⋅n) / (V⋅n)
+        #     # Note that this is in time-from-current-time.
+            
+        #     time_of_collision = -np.dot((last_particle_posn - plane_point).squeeze(), plane_normal.squeeze()) / np.dot(
+        #         current_particle_vel.squeeze(), plane_normal.squeeze())
+            
+        #     # Now we calculate where the particle should actually be, based on this time of collision...
+        #     particle_components_in_box = np.logical_not(particle_components_out_of_box)
+        #     next_particle_posn = last_particle_posn + np.diag(particle_components_in_box.squeeze()) @ current_particle_vel * self.params.dt
+
+        #     current_vel_out_of_bound = current_particle_vel[i_out_of_bound_component]
+        #     next_particle_posn[i_out_of_bound_component] += time_of_collision * current_vel_out_of_bound + (self.params.dt - time_of_collision) * -current_vel_out_of_bound
+
+        #     next_posns[:, i_particle] = next_particle_posn
+        #     next_vels[:, i_particle] = new_vel
+            
 
         return next_posns, next_vels
         
