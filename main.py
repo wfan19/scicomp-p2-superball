@@ -139,5 +139,5 @@ if __name__ == "__main__":
         profiler.stop()
         profiler.print()
 
-    with open(f"{SCENARIO}.pkl", "wb") as file:
+    with open(f"{args.scenario}.pkl", "wb") as file:
         pickle.dump(sim, file)
