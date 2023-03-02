@@ -24,19 +24,24 @@ class ColloidSimParams:
     default_r:      float = 0.025
     default_mass:   float = 1
 
+    brownian:       bool = False
+    st_dev:         float = 0.5
     print_debug:    bool = False
+
+    seed:           int = 1
+    rng:            np.random.Generator = None
 
     def __post_init__(self):
         self.n_steps = int(self.length / self.dt)
 
-        rng = np.random.default_rng(1)
+        self.rng = np.random.default_rng(1)
         posns_max = np.reshape(self.box_dims, (3, 1)) / 2
 
         if self.posns_0 is None: 
-            self.posns_0 = rng.uniform(-posns_max, posns_max, (3, self.n_particles))
+            self.posns_0 = self.rng.uniform(-posns_max, posns_max, (3, self.n_particles))
         if self.vels_0 is None: 
             vels_max = np.ones((3, 1))
-            self.vels_0 = rng.uniform(-vels_max, vels_max, (3, self.n_particles))
+            self.vels_0 = self.rng.uniform(-vels_max, vels_max, (3, self.n_particles))
 
         if self.particles_r is None: self.particles_r = self.default_r * np.ones(self.n_particles)
         if self.particles_mass is None: self.particles_mass = self.default_mass * np.ones(self.n_particles)
@@ -58,6 +63,8 @@ class ColloidSim:
         sim_shape = (params.n_steps, 3, params.n_particles)
         self.posns = np.zeros(sim_shape)
         self.vels = np.zeros(sim_shape)
+        if self.params.brownian:
+            self.vels = self.params.rng.normal(0, self.params.st_dev, sim_shape)
         
         t_start = 0
         t_end = t_start + params.dt * params.n_steps
@@ -74,7 +81,12 @@ class ColloidSim:
             
             last_posns = self.posns[i-1, :, :]
             last_vels = self.vels[i-1, :, :]
-            self.posns[i, :, :], self.vels[i, :, :] = self.step(t, last_posns, last_vels)
+            
+            if np.any(self.vels[i, :, :] != 0):
+                breakpoint()
+                self.posns[i, :, :], self.vels[i, :, :] = self.step(t, last_posns, self.vels[i, :, :])
+            else:
+                self.posns[i, :, :], self.vels[i, :, :] = self.step(t, last_posns, last_vels)
 
     def step(self, t, last_posns, last_vels):
         # 1. Preallocate posn matrix and naively propagate forward last velocity
@@ -122,7 +134,7 @@ class ColloidSim:
                 # Find the closest particle - 
                 # NOTE: Hopefully choosing the minimum-distance collision will also auto-resolve any multiple-collision scenario
                 min_nonzero_dist = np.min(distances[np.nonzero(distances)])
-                i_collision_particle = int(np.argwhere(distances == min_nonzero_dist))
+                i_collision_particle = int(np.argwhere(distances == min_nonzero_dist)[0])
                 collision_pair = frozenset((i_particle, i_collision_particle))
 
                 # This collision has been handled already
@@ -223,6 +235,7 @@ class ColloidSim:
 
         #     next_posns[:, i_particle] = next_particle_posn
         #     next_vels[:, i_particle] = new_vel
+        #     breakpoint()
             
 
         return next_posns, next_vels
