@@ -6,7 +6,7 @@ import moderngl as mgl
 import pygame as pg
 import graphics_utils
 
-from ColloidSim import ColloidSim, ColloidSimParams
+from ColloidSim import ColloidSimParams
 
 class Camera():
     mat_view:           np.ndarray
@@ -108,7 +108,8 @@ class VizSphere():
         self.vertex_array.render()
 
 class ColloidViz():
-    sim:        ColloidSim
+    # TODO: ColloidViz only really needs to take in a set of params
+    sim_params: ColloidSimParams
 
     context:    mgl.Context
     spheres:    List[VizSphere]
@@ -120,8 +121,8 @@ class ColloidViz():
 
     clock:      pg.time.Clock
 
-    def __init__(self, colloid_sim: ColloidSim, window_size = (1200, 900)):
-        self.sim = colloid_sim
+    def __init__(self, sim_params: ColloidSimParams, window_size = (1200, 900), camera_posn=np.array([0.5, 4, 1.5]), control_camera=False):
+        self.sim_params = sim_params
 
         # Set up the Pygame window
         pg.init()
@@ -138,7 +139,7 @@ class ColloidViz():
 
         ## Create the individual sphere meshes and buffer them into GPU memory
         self.spheres = []
-        for r in colloid_sim.params.particles_r:
+        for r in self.sim_params.particles_r:
             self.spheres.append(VizSphere(self.context, self.camera, r))
 
         ## Render the boundary box
@@ -154,42 +155,42 @@ class ColloidViz():
 
         # Build the outsidie boundary cube
         # box_vertices = graphics_utils.make_cube(self.sim.params.box_dims[0])
-        l_x, l_y, l_z = self.sim.params.box_dims
+        l_x, l_y, l_z = self.sim_params.box_dims
         box_vertices = graphics_utils.make_wireframe_cube(l_x, l_y, l_z)
         box_vbo = self.context.buffer(box_vertices)
         self.box_vao = self.context.vertex_array(self.box_program, [(box_vbo, '3f', "in_position")], mode=mgl.LINES)
-    
-    def visualize(self, camera_posn= np.array([0.5, 4, 1.5]), control_camera=False):
+
         if control_camera:
             pg.mouse.set_visible(False)
             pg.event.set_grab(True)
 
         self.camera.position = camera_posn
         self.camera.mat_view = graphics_utils.lookAt(camera_posn, np.array([0, 0, 0]), np.array([0, 0, 1]))
+    
+    def update(self, positions, control_camera=False):
+        # First detect if there are exit conditions
+        for event in pg.event.get():
+            if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE): 
+                # If window is closed, shutdown program
+                for sphere in self.spheres:
+                    sphere.program.release()
+                    sphere.vertex_array.release()
 
-        for positions in self.sim.posns:
-            # First detect if there are exit conditions
-            for event in pg.event.get():
-                if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE): 
-                    # If window is closed, shutdown program
-                    for sphere in self.spheres:
-                        sphere.program.release()
-                        sphere.vertex_array.release()
+                # Exit program
+                pg.quit()
+                quit()
+        
+        dt = self.clock.tick(60)
+        self.context.clear(color=(0.08, 0.16, 0.18))
 
-                    # Exit program
-                    pg.quit()
-                    quit()
-            
-            dt = self.clock.tick(60)
-            self.context.clear(color=(0.08, 0.16, 0.18))
+        if control_camera:
+            self.camera.update(dt)
 
-            if control_camera:
-                self.camera.update(dt)
+        for i, sphere in enumerate(self.spheres):
+            sphere.draw(positions.T[i])
 
-            for i, sphere in enumerate(self.spheres):
-                sphere.draw(positions.T[i])
+        self.box_program["mat_view"].write(self.camera.mat_view)
+        self.box_vao.render()
 
-            self.box_program["mat_view"].write(self.camera.mat_view)
-            self.box_vao.render()
-
-            pg.display.flip()
+        pg.display.flip()
+        
