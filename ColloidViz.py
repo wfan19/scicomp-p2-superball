@@ -73,9 +73,9 @@ class VizSphere():
     camera:                 Camera
 
     def __init__(self, context, camera, r):
-        with open("default.vert") as file:
+        with open("shaders/default.vert") as file:
             vertex_shader = file.read()
-        with open("default.frag") as file:
+        with open("shaders/default.frag") as file:
             fragment_shader = file.read()
 
         self.program = context.program(vertex_shader=vertex_shader, fragment_shader=fragment_shader)
@@ -114,7 +114,7 @@ class ColloidViz():
     spheres:    List[VizSphere]
 
     box_program:    mgl.Program
-    box_vao:        mgl.vertex_array
+    box_vao:        mgl.VertexArray
 
     camera:     Camera
 
@@ -143,9 +143,9 @@ class ColloidViz():
 
         ## Render the boundary box
         # TODO: This is a lot of code - should be moved elsewhere
-        with open("default.vert") as file:
+        with open("shaders/default.vert") as file:
             vertex_shader = file.read()
-        with open("default.frag") as file:
+        with open("shaders/default.frag") as file:
             fragment_shader = file.read()
         self.box_program = self.context.program(vertex_shader=vertex_shader, fragment_shader=fragment_shader)
         self.box_program['mat_model'].write(graphics_utils.translate(0, 0, 0))
