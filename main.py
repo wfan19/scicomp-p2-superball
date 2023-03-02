@@ -2,6 +2,7 @@
 
 import sys
 import pickle
+import argparse
 
 import numpy as np
 
@@ -13,35 +14,37 @@ try:
 except:
     print("No profiler found. Not running profiler.")
 
-SCENARIO = "many_ball"
 REAL_TIME = True
 PRINT_DEBUG = False
 BROWNIAN = False
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run a 3D colloid simulation from a premade list of scenarios")
+    parser.add_argument("scenario", default="two_ball")
+    args = parser.parse_args()
 
-    if SCENARIO == "one_ball":
+    if args.scenario == "one_ball":
         # One ball: tunneling/rollback test
         params = ColloidSimParams(
             n_particles = 1,
             box_dims = np.array([1, 1, 1]),
-            posns_0 = np.array([[0.5, 0, 0]]).T,
+            posns_0 = np.array([[0.49, 0, 0]]).T,
             vels_0= np.array([[1000, 0, 0]]).T,
 
             default_r = 0.1, # Currently still just support single radius
 
             # Step and dt to get "real-time" simulations
             # Note that you don't have to follow this; if you crank up the step count or lower dt it'll just be slower than real time
-            length=0.001,  # The simulator runs at 60fps, so this is enough frames for 2mins
-            dt=0.00001,             # Simulator runs at 60fps
+            length=10,  # The simulator runs at 60fps, so this is enough frames for 2mins
+            dt=0.01,             # Simulator runs at 60fps
             print_debug=PRINT_DEBUG
         )
-    elif SCENARIO == "two_ball":
+    elif args.scenario == "two_ball":
         # Set up basic 2-particle test case: particles going towards each other at the same speed
         params = ColloidSimParams(
             n_particles = 2,
             box_dims = np.array([1, 1, 1]),
-            posns_0 = np.array([[0.5, 0, 0], [-0.5, 0, 0]]).T,
+            posns_0 = np.array([[0.25, 0, 0], [-0.25, 0, 0]]).T,
             vels_0= np.array([[0.25, 0, 0], [0.5, 0, 0]]).T,
 
             default_r = 0.1, # Currently still just support single radius
@@ -52,14 +55,35 @@ if __name__ == "__main__":
             dt=1/60,             # Simulator runs at 60fps
             print_debug=PRINT_DEBUG
         )
+    elif args.scenario == "two_ball_brownian":
+        # Set up basic 2-particle test case: particles going towards each other at the same speed
+        params = ColloidSimParams(
+            n_particles = 2,
+            box_dims = np.array([1, 1, 1]),
+            posns_0 = np.array([[0.5, 0, 0], [-0.5, 0, 0]]).T,
+            vels_0= np.array([[0.25, 0, 0], [0.5, 0, 0]]).T,
+
+            default_r = 0.1, # Currently still just support single radius
+
+            brownian=True,
+            st_dev=1,
+
+            # Step and dt to get "real-time" simulations
+            # Note that you don't have to follow this; if you crank up the step count or lower dt it'll just be slower than real time
+            length = 60,  # The simulator runs at 60fps, so this is enough frames for 2mins
+            dt=1/60,             # Simulator runs at 60fps
+            print_debug=PRINT_DEBUG
+        )
     
-    elif SCENARIO == "many_ball":
+    elif args.scenario == "many_ball":
         # 10 balls in a small box case.
         params = ColloidSimParams(
             n_particles = 30,
             box_dims = np.array([1, 1, 1]),
 
             default_r = 0.05, # Currently still just support single radius
+            brownian=True,
+            st_dev=0.1,
 
             # Step and dt to get "real-time" simulations
             # Note that you don't have to follow this; if you crank up the step count or lower dt it'll just be slower than real time
@@ -88,14 +112,18 @@ if __name__ == "__main__":
 
             # TODO: This is copy-pasted from sim.simulate - is there a better way to code-reuse here?
             # If first timestep, initialize the positions and velocities from the given conditions
-            if i == 0:
+            if i == 0: # TODO: Also check if initial vels are zero! If initial vels are initialized then don't touch it, just skip
                 sim.posns[i, :, :] = sim.params.posns_0
-                sim.vels[i, :, :] = sim.params.vels_0
+                if not np.any(sim.vels[i, :, :] != 0):
+                    sim.vels[i, :, :] = sim.params.vels_0
                 continue
             
             last_posns = sim.posns[i-1, :, :]
             last_vels = sim.vels[i-1, :, :]
-            sim.posns[i, :, :], sim.vels[i, :, :] = sim.step(t, last_posns, last_vels)
+            if np.any(sim.vels[i, :, :] != 0):
+                sim.posns[i, :, :], sim.vels[i, :, :] = sim.step(t, last_posns, sim.vels[i, :, :])
+            else:
+                sim.posns[i, :, :], sim.vels[i, :, :] = sim.step(t, last_posns, last_vels)
 
             viz.update(sim.posns[i, :, :])
         # Actually, we'll just make it possible for ColloidSim to own a ColloidViz. Then if we want to run it in real time we'll just give it a copy, and if not we'll just not give it a copy.
