@@ -12,7 +12,7 @@ class ColloidSimParams:
 
     # Simulation parameters
     length:         float = 1
-    dt:             float = 0.001
+    dt:             float = 1/60
     n_steps:        int = -1
 
     # Dimensions [m]
@@ -40,8 +40,7 @@ class ColloidSimParams:
         if self.posns_0 is None: 
             self.posns_0 = self.rng.uniform(-posns_max, posns_max, (3, self.n_particles))
         if self.vels_0 is None: 
-            vels_max = np.ones((3, 1))
-            self.vels_0 = self.rng.uniform(-vels_max, vels_max, (3, self.n_particles))
+            self.vels_0 = self.rng.normal(0, self.st_dev, (3, self.n_particles))
 
         if self.particles_r is None: self.particles_r = self.default_r * np.ones(self.n_particles)
         if self.particles_mass is None: self.particles_mass = self.default_mass * np.ones(self.n_particles)
@@ -63,8 +62,6 @@ class ColloidSim:
         sim_shape = (params.n_steps, 3, params.n_particles)
         self.posns = np.zeros(sim_shape)
         self.vels = np.zeros(sim_shape)
-        if self.params.brownian:
-            self.vels = self.params.rng.normal(0, self.params.st_dev, sim_shape)
         
         t_start = 0
         t_end = t_start + params.dt * params.n_steps
@@ -82,16 +79,13 @@ class ColloidSim:
             last_posns = self.posns[i-1, :, :]
             last_vels = self.vels[i-1, :, :]
             
-            if np.any(self.vels[i, :, :] != 0):
-                breakpoint()
-                self.posns[i, :, :], self.vels[i, :, :] = self.step(t, last_posns, self.vels[i, :, :])
-            else:
-                self.posns[i, :, :], self.vels[i, :, :] = self.step(t, last_posns, last_vels)
+            self.posns[i, :, :], self.vels[i, :, :] = self.step(t, last_posns, last_vels)
 
     def step(self, t, last_posns, last_vels):
         # 1. Preallocate posn matrix and naively propagate forward last velocity
         next_posns = np.zeros(last_posns.shape)
         next_vels = np.copy(last_vels)
+        next_nudges = np.zeros(last_posns.shape)
 
         # 2. Now check for collisions: which velocities do we update?
         # Purely narrow-phase collision checking: Check every possible particle pair
@@ -133,7 +127,10 @@ class ColloidSim:
             elif np.any(colliding):
                 # Find the closest particle - 
                 # NOTE: Hopefully choosing the minimum-distance collision will also auto-resolve any multiple-collision scenario
-                min_nonzero_dist = np.min(distances[np.nonzero(distances)])
+                try:
+                    min_nonzero_dist = np.min(distances[np.nonzero(distances)])
+                except:
+                    breakpoint()
                 i_collision_particle = int(np.argwhere(distances == min_nonzero_dist)[0])
                 collision_pair = frozenset((i_particle, i_collision_particle))
 
@@ -155,6 +152,7 @@ class ColloidSim:
 
                 # Find the contact normals: (x_1 - x_2) or (x_2 - x_1)
                 # By "contact normal" I mean the vector between the center of mass of each object, which is *normal* to the contact surface. 
+                # normal_1 points from the center of particle_1 *away* from particle_2
                 normal_1 = posn_1 - posn_2                                              # Normal vector centered on "particle"
                 normal_1 = normal_1 / np.linalg.norm(normal_1)                          # Normalize the vector to unit length
                 normal_2 = -normal_1                                                    # Normal vector centered on "collision_particle"
@@ -162,20 +160,33 @@ class ColloidSim:
                 # Find the normal components of the original velocities of each particle
                 # This is the component that gets "flipped" by the collision as it's on the line of force. The rest of the velocity is untouched.
                 # Thus we will scale and subtract this from the original 
-                # *Note*: norm(v)^2 is the same as dot(v, v)
                 vel_1_normal = np.dot(vel_1 - vel_2, normal_1) * normal_1
                 vel_2_normal = np.dot(vel_2 - vel_1, normal_2) * normal_2
 
                 vel_1_new = vel_1 - 2 * m_2 / (m_1 + m_2) * vel_1_normal
                 vel_2_new = vel_2 - 2 * m_1 / (m_1 + m_2) * vel_2_normal
 
+                # Finally, resolve particles caught in overlapping position by moving them to be tangent to each other.
+                overlap_distance = self.params.particles_r[i_particle] * 2 - (np.linalg.norm(posn_1 - posn_2))
+                nudge_1_new = overlap_distance * normal_1
+                nudge_2_new = overlap_distance * normal_2
+                
+                # Save all the values
                 next_vels[:, i_particle] = vel_1_new
                 next_vels[:, i_collision_particle] = vel_2_new
+
+                next_nudges[:, i_particle] += nudge_1_new
+                next_nudges[:, i_collision_particle] += nudge_2_new
+
 
         # 3. Now that we have updated all velocities accordingly, let's integrate the velocities to find the new positions
         # TODO: For entities where a collision after the next step is anticipated, we need to do special things to prevent ghosting
         # r_next = r_current + vel * dt
-        next_posns = last_posns + next_vels * self.params.dt
+        next_posns = last_posns + next_vels * self.params.dt + next_nudges
+
+        ## 4. Resolve particles caught in illegal positions
+        # Ensure particles are within box
+        next_posns = np.clip(next_posns, box_min, box_max)
 
         return next_posns, next_vels
         
