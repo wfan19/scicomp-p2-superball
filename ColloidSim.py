@@ -24,7 +24,6 @@ class ColloidSimParams:
     default_r:      float = 0.025
     default_mass:   float = 1
 
-    brownian:       bool = False
     st_dev:         float = 0.5
     print_debug:    bool = False
 
@@ -67,7 +66,7 @@ class ColloidSim:
         t_end = t_start + params.dt * params.n_steps
         self.times = np.linspace(t_start, t_end, params.n_steps)
 
-    def simulate(self):
+    def simulate(self, f_updates=None):
         for i, t in enumerate(self.times):
 
             # If first timestep, initialize the positions and velocities from the given conditions
@@ -80,6 +79,9 @@ class ColloidSim:
             last_vels = self.vels[i-1, :, :]
             
             self.posns[i, :, :], self.vels[i, :, :] = self.step(t, last_posns, last_vels)
+
+            if f_updates is not None:
+                f_updates(self, i, t)
 
     def step(self, t, last_posns, last_vels):
         # 1. Preallocate posn matrix and naively propagate forward last velocity
