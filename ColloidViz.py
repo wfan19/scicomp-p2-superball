@@ -72,7 +72,7 @@ class VizSphere():
 
     camera:                 Camera
 
-    def __init__(self, context, camera, r):
+    def __init__(self, context, camera, r, color=np.array([1, 1, 1], dtype=np.float32)):
         with open("shaders/default.vert") as file:
             vertex_shader = file.read()
         with open("shaders/default.frag") as file:
@@ -87,15 +87,24 @@ class VizSphere():
         self.program['mat_projection'].write(self.camera.mat_proj)
         self.program['mat_view'].write(self.camera.mat_view)
         self.program['mat_model'].write(np.eye(4, dtype="float32"))
+        # self.program["color"].write(np.random.uniform(0, 1, 3).astype(np.float32))
+        
+        self.program["color"].write(color)
+        self.program["light.position"] = self.camera.position
+        self.program["light.Ia"] = 0.1 * color
+        self.program["light.Id"] = 0.8 * color
+        self.program["light.Is"] = 0.8 * color
 
         sphere_vertices, sphere_normals, sphere_uv, sphere_indices = graphics_utils.make_sphere(r, 30, 30)
         sphere_vbo  = context.buffer(sphere_vertices)
         uv_vbo      = context.buffer(sphere_uv)
+        normals_vbo = context.buffer(sphere_normals)
         indices_vbo = context.buffer(sphere_indices)
 
         self.vertex_array = context.vertex_array(self.program, [
                 (sphere_vbo, '3f', 'in_position'),
-                (uv_vbo, '2f', 'in_textcoord')
+                (uv_vbo, '2f', 'in_textcoord'),
+                (normals_vbo, '3f', 'in_normal'),
             ],
             index_buffer=indices_vbo,
             index_element_size=4
@@ -105,6 +114,8 @@ class VizSphere():
         self.program['mat_model'].write(graphics_utils.translate(position[0], position[1], position[2]))
         self.program['mat_projection'].write(self.camera.mat_proj)
         self.program['mat_view'].write(self.camera.mat_view)
+
+        self.program['cam_posn'].write(self.camera.position)
         self.vertex_array.render()
 
 class ColloidViz():
@@ -139,8 +150,10 @@ class ColloidViz():
 
         ## Create the individual sphere meshes and buffer them into GPU memory
         self.spheres = []
-        for r in self.sim_params.particles_r:
-            self.spheres.append(VizSphere(self.context, self.camera, r))
+        rng = np.random.default_rng(1)
+        colors = rng.uniform(0, 1, (len(self.sim_params.particles_r), 3)).astype(np.float32)
+        for r, color in zip(self.sim_params.particles_r, colors):
+            self.spheres.append(VizSphere(self.context, self.camera, r, color))
 
         ## Render the boundary box
         # TODO: This is a lot of code - should be moved elsewhere
@@ -181,7 +194,7 @@ class ColloidViz():
                 quit()
         
         dt = self.clock.tick(60)
-        self.context.clear(color=(0.08, 0.16, 0.18))
+        self.context.clear(color=np.array([52, 63, 66])/255)
 
         if control_camera:
             self.camera.update(dt)

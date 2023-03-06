@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--n_particles", metavar="N", type=int, default=10, help="Specify the number of particles")
     parser.add_argument("-s", "--std_dev", metavar="STD", type=float, default=1., help="Standard deviation of initial particle velocities")
     parser.add_argument("-b", "--box_dims", nargs=3, metavar=("x", "y", "z"), type=float, default=(1, 1, 1), help="Individual dimensions of box size")
-    parser.add_argument("-r", "--radius", metavar="RAD", type=float, default=0.1, help="Radius of all particles. (default 0.1)")
+    parser.add_argument("-r", "--radius", metavar="RAD", type=float, default=0.05, help="Radius of all particles. (default 0.1)")
     parser.add_argument("-t", "--time", metavar="TIME", type=int, default=30, help="Lenght of total simulation time in seconds, defaults to 30")
     parser.add_argument("-dt", "--timestep", metavar="TIMESTEP", type=float, default=1/60, help="Length of each timestep in seconds. Defaults to 1/60 for 60fps")
     parser.add_argument("-p", "--pure_sim", action="store_true", help="Toggle whether the simulation will run in real time. If true, update the visuals for each simulation timestep. If false, simulate all timesteps first, then plot everything (default True)")
