@@ -8,6 +8,7 @@ import numpy as np
 
 from ColloidSim import ColloidSim, ColloidSimParams
 from ColloidViz import ColloidViz
+from ResultPlotter import plot_results
 
 try:
     from pyinstrument import Profiler
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     elif args.scenario == "100_ball":
         # 10 balls in a small box case.
         params = ColloidSimParams(
-            n_particles = 500,
+            n_particles = 100,
             box_dims = np.array([1, 1, 1]),
 
             default_r = 0.05, # Currently still just support single radius
@@ -172,6 +173,8 @@ if __name__ == "__main__":
         # Actually, we'll just make it possible for ColloidSim to own a ColloidViz. Then if we want to run it in real time we'll just give it a copy, and if not we'll just not give it a copy.
     else:
         sim.simulate()
+
+        plot_results(sim)
 
         # Feel free to move the camera around
         # control_camera enables fps-style control of the camera, but BEWARE! It's quite broken and will def trip you up :)

@@ -65,10 +65,10 @@ class ColloidSim:
         
         t_start = 0
         t_end = t_start + params.dt * params.n_steps
-        self.timesteps = np.linspace(t_start, t_end, params.n_steps)
+        self.times = np.linspace(t_start, t_end, params.n_steps)
 
     def simulate(self):
-        for i, t in enumerate(self.timesteps):
+        for i, t in enumerate(self.times):
 
             # If first timestep, initialize the positions and velocities from the given conditions
             if i == 0:

@@ -3,9 +3,10 @@
 import argparse
 import pickle
 
+from ResultPlotter import plot_results
+
 import numpy as np
 
-from ColloidSim import ColloidSim
 from ColloidViz import ColloidViz
 
 if __name__ == "__main__":
@@ -15,6 +16,8 @@ if __name__ == "__main__":
 
     with open(args.path, "rb") as file:
         sim = pickle.load(file)
+
+        plot_results(sim)
         
         viz = ColloidViz(sim.params, camera_posn=np.array([0.5, 2.5, 1]), control_camera=False)
         for position_i in sim.posns:
